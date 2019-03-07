@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>items</key>
+	<array>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>NeonBoard</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSStaticTextCell</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.artikus.neonboardprefs</string>
+			<key>key</key>
+			<string>kEnabled</string>
+			<key>label</key>
+			<string></string>
+			<key>height</key>
+			<string>133</string>
+			<key>icon</key>
+			<string>neonboard.png</string>
+		</dict>
+	</array>
+	<key>title</key>
+	<string>NeonBoard</string>
+</dict>
+</plist>
