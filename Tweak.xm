@@ -8,8 +8,6 @@ NSDictionary *prefs = [[NSDictionary alloc] initWithContentsOfFile:@"/var/mobile
 - (id)_generateIconBasicOverlayImageForFormat:(int)fp8;
 @end
 
-
-
 @interface SBIcon : NSObject
 - (id)applicationBundleID;
 @end
@@ -82,6 +80,14 @@ NSArray *themes = nil;
     for(NSString *theme in themes) {
       path = [NSString stringWithFormat:@"/Library/Themes/%@.theme/IconBundles/%@%@%@.png",theme,bundleID,device,scale];
       if([[NSFileManager defaultManager] fileExistsAtPath:path isDirectory:nil]) break;
+      else {
+        path = [NSString stringWithFormat:@"/Library/Themes/%@.theme/IconBundles/%@%@.png",theme,bundleID,device];
+        if([[NSFileManager defaultManager] fileExistsAtPath:path isDirectory:nil]) break;
+        else {
+          path = [NSString stringWithFormat:@"/Library/Themes/%@.theme/IconBundles/%@-large.png",theme,bundleID];
+          if([[NSFileManager defaultManager] fileExistsAtPath:path isDirectory:nil]) break;
+        }
+      }
     }
     if([[NSFileManager defaultManager] fileExistsAtPath:path isDirectory:nil]) {
       UIImage *image = [UIImage imageWithContentsOfFile:path];

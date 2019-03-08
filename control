@@ -1,7 +1,7 @@
 Package: com.artikus.neonboard
 Name: NeonBoard
 Depends: mobilesubstrate
-Version: 1.0.0
+Version: 1.0.1
 Architecture: iphoneos-arm
 Description: A small and unfinished theming engine I made as an experiment.
 Maintainer: ArtikusHG
@@ -9,4 +9,4 @@ Author: ArtikusHG
 Section: Tweaks
 Replaces: com.anemonetheming.anemone, winterboard, com.codethemed.iconbundles
 Provides: com.anemonetheming.anemone, winterboard, com.codethemed.iconbundles
-Conflicts: com.anemonetheming.anemone, winterboard, com.codethemed.iconbundles
+Conflicts: com.anemonetheming.anemone, winterboard, com.codethemed.iconbundles, com.spark.snowboard
