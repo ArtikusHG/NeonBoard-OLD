@@ -56,8 +56,18 @@ NSArray *themes = nil;
   NSString *path = nil;
   if([[prefs valueForKey:@"Themes enabled"] boolValue]) {
     for(NSString *theme in [prefs objectForKey:@"selectedCells"]) {
+      //path = [NSString stringWithFormat:@"/Library/Themes/%@.theme/IconBundles/%@%@%@.png",theme,bundleID,device,scale];
+      //if([[NSFileManager defaultManager] fileExistsAtPath:path isDirectory:nil]) return YES;
       path = [NSString stringWithFormat:@"/Library/Themes/%@.theme/IconBundles/%@%@%@.png",theme,bundleID,device,scale];
       if([[NSFileManager defaultManager] fileExistsAtPath:path isDirectory:nil]) return YES;
+      else {
+        path = [NSString stringWithFormat:@"/Library/Themes/%@.theme/IconBundles/%@%@.png",theme,bundleID,device];
+        if([[NSFileManager defaultManager] fileExistsAtPath:path isDirectory:nil]) return YES;
+        else {
+          path = [NSString stringWithFormat:@"/Library/Themes/%@.theme/IconBundles/%@-large.png",theme,bundleID];
+          if([[NSFileManager defaultManager] fileExistsAtPath:path isDirectory:nil]) return YES;
+        }
+      }
     }
   }
   return NO;
