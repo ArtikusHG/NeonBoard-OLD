@@ -37,7 +37,7 @@ NSString *device;
 }
 
 - (void)twitter {
-	[[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://twitter.com/artikus_hg"]];
+	[[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://twitter.com/ArtikusHG"]];
 }
 
 - (void)github {
