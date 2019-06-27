@@ -18,7 +18,7 @@
 	if([dict objectForKey:@"selectedCells"] != nil) themesList = [arr mutableCopy];
   NSMutableDictionary *themesDict = [[NSMutableDictionary alloc] initWithContentsOfFile:@PLIST_PATH_Settings]?:[NSMutableDictionary dictionary];
   for (NSString *theme in themesList) {
-    if(![[NSFileManager defaultManager] fileExistsAtPath:[NSString stringWithFormat:@"/Library/Themes/%@.theme",theme] isDirectory:nil]) {
+    if(![[NSFileManager defaultManager] fileExistsAtPath:[NSString stringWithFormat:@"/Library/Themes/%@",theme] isDirectory:nil] && ![[NSFileManager defaultManager] fileExistsAtPath:[NSString stringWithFormat:@"/Library/Themes/%@.theme",theme] isDirectory:nil]) {
       [themesList removeObject:theme];
       [themesDict setObject:themesList forKey:@"selectedCells"];
       [themesDict writeToFile:@PLIST_PATH_Settings atomically:YES];
