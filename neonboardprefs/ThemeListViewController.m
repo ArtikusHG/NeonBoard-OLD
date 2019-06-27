@@ -21,7 +21,7 @@
 	NSArray *titles = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/Library/Themes/" error:nil];
 	NSMutableArray *mutableThemes = [[NSMutableArray alloc] init];
 	for (NSString *object in titles) {
-		if([[NSFileManager defaultManager] fileExistsAtPath:[NSString stringWithFormat:@"/Library/Themes/%@/IconBundles",object] isDirectory:nil]) {
+		if(![[NSFileManager defaultManager] fileExistsAtPath:[NSString stringWithFormat:@"/Library/Themes/%@/Bundles/com.apple.mobileicons.framework",object] isDirectory:nil]) {
 			[mutableThemes addObject:[object stringByReplacingOccurrencesOfString:@".theme" withString:@""]];
 		}
 	}
@@ -83,7 +83,6 @@
 
 - (void)writeData {
 	NSMutableDictionary *dict = [[NSMutableDictionary alloc] initWithContentsOfFile:@PLIST_PATH_Settings]?:[NSMutableDictionary dictionary];
-	//[dict setObject:finalList forKey:@"finalList"];
 	[dict setObject:selectedCells forKey:@"selectedCells"];
 	[dict writeToFile:@PLIST_PATH_Settings atomically:YES];
 }

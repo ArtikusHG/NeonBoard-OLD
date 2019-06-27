@@ -4,28 +4,230 @@
 <dict>
 	<key>items</key>
 	<array>
+
 		<dict>
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
-			<string>NeonBoard</string>
+			<string>Manage themes</string>
 		</dict>
+
 		<dict>
 			<key>cell</key>
-			<string>PSStaticTextCell</string>
-			<key>default</key>
-			<false/>
+			<string>PSSwitchCell</string>
+			<key>label</key>
+			<string>Themes enabled</string>
 			<key>defaults</key>
 			<string>com.artikus.neonboardprefs</string>
 			<key>key</key>
-			<string>kEnabled</string>
-			<key>label</key>
-			<string></string>
-			<key>height</key>
-			<string>133</string>
-			<key>icon</key>
-			<string>neonboard.png</string>
+			<string>kThemesEnabled</string>
 		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSLinkCell</string>
+			<key>label</key>
+			<string>Themes</string>
+			<key>detail</key>
+			<string>ThemeListViewController</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSLinkCell</string>
+			<key>label</key>
+			<string>Sort themes</string>
+			<key>detail</key>
+			<string>ThemeSortViewController</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Manage masks</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>label</key>
+			<string>Masks enabled</string>
+			<key>defaults</key>
+			<string>com.artikus.neonboardprefs</string>
+			<key>key</key>
+			<string>kMasksEnabled</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSLinkListCell</string>
+			<key>label</key>
+			<string>Mask</string>
+			<key>defaults</key>
+			<string>com.artikus.neonboardprefs</string>
+			<key>key</key>
+			<string>kMask</string>
+			<key>detail</key>
+			<string>PSListItemsController</string>
+			<key>valuesDataSource</key>
+			<string>getMasksArray</string>
+			<key>titlesDataSource</key>
+			<string>getMasksArray</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Extensions (can drain battery!)</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>label</key>
+			<string>Advanced calendar theming</string>
+			<key>defaults</key>
+			<string>com.artikus.neonboardprefs</string>
+			<key>key</key>
+			<string>kAdvancedCalendar</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>label</key>
+			<string>Notification icons theming</string>
+			<key>defaults</key>
+			<string>com.artikus.neonboardprefs</string>
+			<key>key</key>
+			<string>kNotifsEnabled</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>label</key>
+			<string>Widget icons theming</string>
+			<key>defaults</key>
+			<string>com.artikus.neonboardprefs</string>
+			<key>key</key>
+			<string>kWidgetsEnabled</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Customization options</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>label</key>
+			<string>Hide labels</string>
+			<key>defaults</key>
+			<string>com.artikus.neonboardprefs</string>
+			<key>key</key>
+			<string>kHideLabels</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>label</key>
+			<string>Disable dark overlay</string>
+			<key>defaults</key>
+			<string>com.artikus.neonboardprefs</string>
+			<key>key</key>
+			<string>kNoOverlay</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>label</key>
+			<string>Hide dock background</string>
+			<key>defaults</key>
+			<string>com.artikus.neonboardprefs</string>
+			<key>key</key>
+			<string>kNoDockBg</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>label</key>
+			<string>Hide folder icon background</string>
+			<key>defaults</key>
+			<string>com.artikus.neonboardprefs</string>
+			<key>key</key>
+			<string>kNoFolderIconBg</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>label</key>
+			<string>Hide page dots</string>
+			<key>defaults</key>
+			<string>com.artikus.neonboardprefs</string>
+			<key>key</key>
+			<string>kNoPageDots</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Respring to apply changes</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>label</key>
+			<string>Respring</string>
+			<key>action</key>
+			<string>reloadSpringboard</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Follow me</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>label</key>
+			<string>Twitter</string>
+			<key>action</key>
+			<string>twitter</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>label</key>
+			<string>GitHub (the source code's there)</string>
+			<key>action</key>
+			<string>github</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>label</key>
+			<string>SoundCloud (I make trash music)</string>
+			<key>action</key>
+			<string>soundcloud</string>
+		</dict>
+
 	</array>
 	<key>title</key>
 	<string>NeonBoard</string>

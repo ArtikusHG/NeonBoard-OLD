@@ -1,15 +1,14 @@
 THEOS_DEVICE_IP = 192.168.0.87
-ARCHS = armv7 armv7s arm64
+ARCHS = arm64
 TARGET := iphone:clang:8.1
-FINALPACKAGE = 1
-DEBUG = 0
 include /Users/artikus/theos/makefiles/common.mk
 
 TWEAK_NAME = NeonBoard
-NeonBoard_FILES = Tweak.xm
+NeonBoard_FILES = Tweak.xm Calendar.xm UIColor+HTMLColors.mm
 NeonBoard_FRAMEWORKS = UIKit QuartzCore CoreGraphics
-NeonBoard_PRIVATE_FRAMEWORKS = AppSupport
-NeonBoard_CFLAGS = -fobjc-arc
+NeonBoard_PRIVATE_FRAMEWORKS = MobileIcons
+Tweak.xm_CFLAGS = -fobjc-arc
+Calendar.xm_CFLAGS = -fobjc-arc
 
 include $(THEOS_MAKE_PATH)/tweak.mk
 

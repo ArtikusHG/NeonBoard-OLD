@@ -2,66 +2,39 @@
 #import <objc/runtime.h>
 #include <AppSupport/CPDistributedMessagingCenter.h>
 
-NSDictionary *prefs = [[NSDictionary alloc] initWithContentsOfFile:@"/var/mobile/Library/Preferences/com.artikus.neonboardprefs.plist"];
+NSDictionary *prefs;
 
-@interface SBIconImageView : UIView {
-  double _overlayAlpha;
-}
-- (id)_generateIconBasicOverlayImageForFormat:(int)fp8;
-@end
+// Headers are a mess.
 
 @interface SBIcon : NSObject
 - (id)applicationBundleID;
 @end
 
 @interface SBApplicationIcon : SBIcon
+- (UIImage *)getUnmaskedIconImage:(NSInteger)format;
 @end
 
-@interface NCNotificationViewController : UIViewController
-- (NSString *)sectionID;
-- (id)notificationRequest;
-@end
-
-@interface UIView (Neon)
+@interface UIView (Private)
 - (NSArray *)allSubviews;
 @end
 
-@interface PLPlatterHeaderContentView : UIView
-- (void)setIcons:(NSArray *)icons;
-@end
-
-@interface SearchUIAppIconImage
-- (NSString *)bundleIdentifier;
-@end
-
-@interface WGWidgetHostingViewController
-- (NSString *)appBundleID;
-@end
-
-@interface WGWidgetListItemViewController
-- (WGWidgetHostingViewController *)widgetHost;
-@end
-
-@interface MPCPlayerPath
-+ (id)deviceActivePlayerPath;
-+ (NSString *)bundleID;
-@end
-
-@interface MediaControlsHeaderView : UIView
-- (void)setPlaceholderArtworkView:(UIImageView *)view;
-- (UIImageView *)placeholderArtworkView;
-@end
-
-@interface PSTableCell
-- (NSString *)getLazyIconID;
-- (UIImage *)blankIcon;
+@interface UIImage (Private)
+- (UIImage *)_applicationIconImageForFormat:(int)format precomposed:(BOOL)precomposed scale:(double)scale;
+- (UIImage *)_applicationIconImageForFormat:(int)format precomposed:(BOOL)precomposed;
 @end
 
 @interface NCNotificationRequestContentProvider
 @property (nonatomic,readonly) UIImage *thumbnail;
 @property (nonatomic,readonly) NSArray *icons;
-
 - (NSString *)_appBundleIdentifer;
+@end
+
+@interface NSExtension : NSObject
+@end
+
+@interface WGWidgetInfo
+@property (setter=_setIcon:,getter=_icon,nonatomic,retain) UIImage *icon;
+- (NSString *)widgetIdentifier;
 @end
 
 // Custom class for methods that I need to call multiple times
@@ -69,24 +42,21 @@ NSDictionary *prefs = [[NSDictionary alloc] initWithContentsOfFile:@"/var/mobile
 @interface Neon : NSObject
 + (NSString *)filePathForBundleID:(NSString *)bundleID;
 + (BOOL)customIconExists:(NSString *)bundleID;
-+ (UIImage *)iconImageForBundleID:(NSString *)bundleID masked:(BOOL)masked origImage:(UIImage *)origImage;
++ (UIImage *)iconImageForBundleID:(NSString *)bundleID masked:(BOOL)masked format:(int)format;
 + (id)resizeImage:(UIImage *)image toSize:(int)size;
 + (UIImage *)maskImage:(UIImage *)toMaskImage withImage:(UIImage *)maskImage size:(int)size;
++ (UIImage *)customlyMaskedImageForImage:(UIImage *)image;
 @end
 
 @implementation Neon
 
 NSArray *themes = nil;
-UIImage *maskImage = nil;
+NSCache *pathCache = nil;
+NSCache *unmaskedIconCache = nil;
 
 + (NSString *)device {
   if(UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) return @"~ipad";
   return @"";
-}
-
-+ (int)imageSize {
-  if(UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) return 78;
-  return 60;
 }
 
 + (NSString *)screenScale {
@@ -97,10 +67,20 @@ UIImage *maskImage = nil;
 }
 
 + (NSString *)filePathForBundleID:(NSString *)bundleID {
-  if(![[prefs valueForKey:@"Themes enabled"] boolValue]) return @"";
+  // Didn't wanna mess up the code so made a separate method managing cache too
+  NSString *cachedPath = [pathCache objectForKey:bundleID];
+  if(cachedPath.length != 0 && ![cachedPath isEqualToString:@"DOESNTEXIST"]) return cachedPath;
+  else {
+    NSString *path = [self generateFilePathForBundleID:bundleID];
+    if(path.length != 0) [pathCache setObject:path forKey:bundleID];
+    else [pathCache setObject:@"DOESNTEXIST" forKey:bundleID];
+    return path;
+  }
+}
+
++ (NSString *)generateFilePathForBundleID:(NSString *)bundleID {
   // Credit: Nick Frey for IconBundles source code, https://github.com/nickfrey/IconBundles
   // Hacked up by me to actually get the proper file path because my own thing wasn't really working...
-  if(themes == nil) themes = [prefs objectForKey:@"selectedCells"];
   CGFloat scale = [UIScreen mainScreen].scale;
   NSString *path = nil;
   if([bundleID isEqualToString:@"com.apple.mobiletimer"]) {
@@ -147,30 +127,49 @@ UIImage *maskImage = nil;
   return NO;
 }
 
-+ (UIImage *)iconImageForBundleID:(NSString *)bundleID masked:(BOOL)masked origImage:(UIImage *)origImage {
-  int size = (int)floorf(origImage.size.width);
-  if(maskImage == nil) maskImage = [[[objc_getClass("SBIconImageView") alloc] init] _generateIconBasicOverlayImageForFormat:2];
-  if(themes == nil) themes = [prefs objectForKey:@"selectedCells"];
-  if(![[prefs valueForKey:@"Themes enabled"] boolValue] && ![[prefs valueForKey:@"Masks enabled"] boolValue]) return origImage;
-  UIImage *finalImage = nil;
-  NSString *path = nil;
-  // go with themes
-  if([[prefs valueForKey:@"Themes enabled"] boolValue]) {
-    path = [self filePathForBundleID:bundleID];
-    if([[NSFileManager defaultManager] fileExistsAtPath:path isDirectory:nil]) {
-      UIImage *image = [UIImage imageWithContentsOfFile:path];
-      finalImage = [self resizeImage:image toSize:size];
-    }
-    if(!masked) return finalImage;
-    if([[prefs valueForKey:@"Themes enabled"] boolValue] || [[prefs valueForKey:@"Masks enabled"] boolValue]) {
-      if([[prefs valueForKey:@"Masks enabled"] boolValue]) {
-        NSString *maskPath = [NSString stringWithFormat:@"/Library/Themes/%@.theme/Bundles/com.apple.mobileicons.framework/AppIconMask%@%@.png",[prefs objectForKey:@"Masks"],[Neon device],[Neon screenScale]];
-        UIImage *customMaskImage = [UIImage imageWithContentsOfFile:maskPath];
-        finalImage = [self maskImage:finalImage withImage:customMaskImage size:size];
-      } else finalImage = [self maskImage:finalImage withImage:maskImage size:size];
-    }
-  }
++ (UIImage *)unmaskedIconImageForBundleID:(NSString *)bundleID {
+  UIImage *finalImage = [unmaskedIconCache objectForKey:bundleID];
+  if(finalImage) return finalImage;
+  NSString *path = [self filePathForBundleID:bundleID];
+  if([[NSFileManager defaultManager] fileExistsAtPath:path isDirectory:nil]) finalImage = [UIImage imageWithContentsOfFile:path];
+  [unmaskedIconCache setObject:finalImage forKey:bundleID];
   return finalImage;
+}
+
++ (UIImage *)iconImageForBundleID:(NSString *)bundleID masked:(BOOL)masked format:(int)format {
+  UIImage *finalImage = [self unmaskedIconImageForBundleID:bundleID];
+  if(!masked) return finalImage;
+  // TODO: check without the "scale" argument on iOS 7 & 12 because IDK if that can cause problems; it works on iOS 10 though.
+  finalImage = [finalImage _applicationIconImageForFormat:format precomposed:YES];
+  return finalImage;
+}
+
++ (UIImage *)iconImageForBundleID:(NSString *)bundleID masked:(BOOL)masked origImage:(UIImage *)origImage {
+  int size = (int)origImage.size.width;
+  UIImage *finalImage = [self unmaskedIconImageForBundleID:bundleID];
+  finalImage = [self resizeImage:finalImage toSize:size];
+  if(!masked) return finalImage;
+  if([[prefs valueForKey:@"kMasksEnabled"] boolValue]) {
+    finalImage = [self customlyMaskedImageForImage:finalImage];
+  } else finalImage = [self maskImage:finalImage withImage:origImage size:size];
+  return finalImage;
+}
+
++ (UIImage *)customlyMaskedImageForImage:(UIImage *)image {
+  int size = (int)image.size.width;
+  NSMutableArray *potentialFilenames = [[NSMutableArray alloc] init];
+  NSString *maskPath = nil;
+  [potentialFilenames addObject:[NSString stringWithFormat:@"/Library/Themes/%@.theme/Bundles/com.apple.mobileicons.framework/AppIconMask%@%@.png",[prefs objectForKey:@"kMask"],[Neon device],[Neon screenScale]]];
+  [potentialFilenames addObject:[NSString stringWithFormat:@"/Library/Themes/%@.theme/Bundles/com.apple.mobileicons.framework/AppIconMask%@%@.png",[prefs objectForKey:@"kMask"],[Neon screenScale],[Neon device]]];
+  [potentialFilenames addObject:[NSString stringWithFormat:@"/Library/Themes/%@.theme/Bundles/com.apple.mobileicons.framework/AppIconMask%@.png",[prefs objectForKey:@"kMask"],[Neon device]]];
+  [potentialFilenames addObject:[NSString stringWithFormat:@"/Library/Themes/%@.theme/Bundles/com.apple.mobileicons.framework/AppIconMask%@.png",[prefs objectForKey:@"kMask"],[Neon screenScale]]];
+  for (NSString *path in potentialFilenames) {
+    if([[NSFileManager defaultManager] fileExistsAtPath:path]) maskPath = path;
+  }
+  if(!maskPath) return image;
+  UIImage *customMaskImage = [UIImage imageWithContentsOfFile:maskPath];
+  image = [self maskImage:image withImage:customMaskImage size:size];
+  return image;
 }
 
 + (UIImage *)maskImage:(UIImage *)toMaskImage withImage:(UIImage *)maskImage size:(int)size {
@@ -189,7 +188,7 @@ UIImage *maskImage = nil;
   return maskedImage;
 }
 
-+ (id)resizeImage:(UIImage *)image toSize:(int)size {
++ (UIImage *)resizeImage:(UIImage *)image toSize:(int)size {
   UIGraphicsBeginImageContextWithOptions(CGSizeMake(size,size), NO, [UIScreen mainScreen].scale);
   [image drawInRect:CGRectMake(0,0,size,size)];
   UIImage *finalImage = UIGraphicsGetImageFromCurrentImageContext();
@@ -201,137 +200,24 @@ UIImage *maskImage = nil;
 
 // Actual hook
 
-
-/*%hook SBApplicationIcon
-
-- (UIImage *)generateIconImage:(int)format {
-  if(![Neon customIconExists:[self applicationBundleID]]) return %orig;
-  if(format == 5) return [Neon iconImageForBundleID:[self applicationBundleID] masked:YES origImage:%orig notification:YES];
-  return [Neon iconImageForBundleID:[self applicationBundleID] masked:YES origImage:%orig notification:NO];
-}
-
-- (UIImage *)getCachedIconImage:(int)fp8 {
-  if(![Neon customIconExists:[self applicationBundleID]]) return %orig;
-  return [Neon iconImageForBundleID:[self applicationBundleID] masked:YES origImage:%orig notification:NO];
-}
-
-- (UIImage *)getUnmaskedIconImage:(NSInteger)format {
-  if(![Neon customIconExists:[self applicationBundleID]]) return %orig;
-  return [Neon iconImageForBundleID:[self applicationBundleID] masked:NO origImage:%orig notification:NO];
-}
-
-%end
-
-// Control center now playing icon
-
-%hook MPCPlayerPath
-
-NSString *globalBundleID = nil;
-
-+(MPCPlayerPath *)pathWithRoute:(id)arg1 bundleID:(NSString *)bundleID playerID:(id)arg3 {
-  // the cc shows the music icon on idle so lets set it to music if nothing is playing
-  if(bundleID.length == 0) globalBundleID = @"com.apple.Music";
-  else globalBundleID = [bundleID copy];
-  return %orig;
-}
-
-%new
-+ (NSString *)bundleID {
-  return globalBundleID;
-}
-
-%end
-
-%hook MediaControlsPanelViewController
-
-- (MediaControlsHeaderView *)headerView {
-  if(![Neon customIconExists:[objc_getClass("MPCPlayerPath") bundleID]]) return %orig;
-  UIImage *icon = [Neon iconImageForBundleID:[objc_getClass("MPCPlayerPath") bundleID] masked:YES origImage:nil notification:NO];
-  icon = [Neon resizeImage:icon toSize:29];
-  UIImageView *customImageView = [%orig placeholderArtworkView];
-  [customImageView setImage:icon];
-  MediaControlsHeaderView *customHeaderView = %orig;
-  [customHeaderView setPlaceholderArtworkView:customImageView];
-  return customHeaderView;
-}
-
-%end
-
-// Notifs, iOS 12
-
-%hook NCNotificationViewController
-
-%new
-- (NSString *)sectionID {
-  return [MSHookIvar<NSString *>([self notificationRequest], "_sectionIdentifier") copy];
-}
-
-%end
-
-%hook PLPlatterHeaderContentView
-
-- (void)setIcons:(NSArray *)icons {
-  UIResponder *responder = self;
-  NSString *bundleID = nil;
-  while ([responder isKindOfClass:[UIView class]]) responder = [responder nextResponder];
-  if([responder isKindOfClass:objc_getClass("NCNotificationViewController")]) {
-    NCNotificationViewController *vc = (NCNotificationViewController *)responder;
-    bundleID = [vc sectionID];
-  } else if([responder isKindOfClass:objc_getClass("WGWidgetListItemViewController")]) {
-    WGWidgetListItemViewController *vc = (WGWidgetListItemViewController *)responder;
-    bundleID = [[vc widgetHost] appBundleID];
-  } else {
-    %orig;
-    return;
-  }
-  if([Neon customIconExists:bundleID]) %orig(@[[Neon iconImageForBundleID:bundleID masked:YES origImage:nil notification:YES]]);
-  else %orig;
-}
-
-%end
-
-%hook NCShortLookView
-- (void)setIcon:(UIImage *)icon {
-  UIResponder *responder = self;
-  NSString *bundleID = nil;
-  while ([responder isKindOfClass:[UIView class]]) responder = [responder nextResponder];
-  if([responder isKindOfClass:objc_getClass("NCNotificationViewController")]) {
-    NCNotificationViewController *vc = (NCNotificationViewController *)responder;
-    bundleID = [vc sectionID];
-  } else {
-    %orig;
-    return;
-  }
-  if([Neon customIconExists:bundleID]) %orig([Neon iconImageForBundleID:bundleID masked:YES origImage:nil notification:YES]);
-  else %orig;
-}
-%end
-
-%hook SearchUIAppIconImage
-
-- (UIImage *)generateImageWithFormat:(int)format {
-  if(![Neon customIconExists:[self bundleIdentifier]]) return %orig;
-  return [Neon iconImageForBundleID:[self bundleIdentifier] masked:YES origImage:%orig notification:NO];
-}
-
-%end*/
+%group Themes
 
 %hook UIImage
 
 + (UIImage *)_applicationIconImageForBundleIdentifier:(NSString *)bundleIdentifier format:(int)format scale:(double)scale {
-  if(![Neon customIconExists:bundleIdentifier]) return %orig;
-  return [Neon iconImageForBundleID:bundleIdentifier masked:YES origImage:%orig];
+  if(![Neon customIconExists:bundleIdentifier]) {
+    if([[prefs objectForKey:@"kMasksEnabled"] boolValue] && /* temporary fix because that causes issues on 7 - 10 */ kCFCoreFoundationVersionNumber >= 1443.00) return [%orig _applicationIconImageForFormat:format precomposed:YES];
+    return %orig;
+  }
+  return [Neon iconImageForBundleID:bundleIdentifier masked:YES format:format];
 }
 
 + (UIImage *)_applicationIconImageForBundleIdentifier:(NSString *)bundleIdentifier format:(int)format {
-  if(![Neon customIconExists:bundleIdentifier]) return %orig;
-  return [Neon iconImageForBundleID:bundleIdentifier masked:YES origImage:%orig];
-}
-
-// Idk why I added this; it's an iOS 4/5 method.
-+ (UIImage *)_applicationIconImageForBundleIdentifier:(id)bundleIdentifier roleIdentifier:(id)roleIdentifier format:(int)format scale:(float)scale {
-  if(![Neon customIconExists:bundleIdentifier]) return %orig;
-  return [Neon iconImageForBundleID:bundleIdentifier masked:YES origImage:%orig];
+  if(![Neon customIconExists:bundleIdentifier]) {
+    if([[prefs objectForKey:@"kMasksEnabled"] boolValue] && /* temporary fix because that causes issues on 7 - 10 */ kCFCoreFoundationVersionNumber >= 1443.00) return [%orig _applicationIconImageForFormat:format precomposed:YES];
+    return %orig;
+  }
+  return [Neon iconImageForBundleID:bundleIdentifier masked:YES format:format];
 }
 
 %end
@@ -340,22 +226,7 @@ NSString *globalBundleID = nil;
 
 - (UIImage *)getUnmaskedIconImage:(NSInteger)format {
   if(![Neon customIconExists:[self applicationBundleID]]) return %orig;
-  return [Neon iconImageForBundleID:[self applicationBundleID] masked:NO origImage:%orig];
-}
-
-%end
-
-%hook APWUtil
-
-+ (UIImage *)iconForBundleIdentifier:(NSString *)bundleIdentifier withFormat:(int)format {
-  if(![Neon customIconExists:bundleIdentifier]) return %orig;
-  UIImage *unmaskedIcon = [Neon iconImageForBundleID:bundleIdentifier masked:NO origImage:%orig];
-  // So. The Neon method above uses SBIconImageView to get the mask image...
-  // Which is not possible due to this not being a SpringBoard class. It's from AppPredictionWidget.
-  // So, err, we get a non-exsisting (blank) icon and mask the icon we have with it.
-  // BIIIIIIIG TODO: CUSTOM MASKS.
-  UIImage *maskImage = %orig(@"im.sure.this.bundle.id.doesnt.exist",format);
-  return [Neon maskImage:unmaskedIcon withImage:maskImage size:%orig.size.width];
+  return [Neon iconImageForBundleID:[self applicationBundleID] masked:NO format:format];
 }
 
 %end
@@ -364,18 +235,23 @@ NSString *globalBundleID = nil;
 
 %hook SBClockApplicationIconImageView
 
-- (id)contentsImage {
-  if(![Neon customIconExists:@"com.apple.mobiletimer"]) return %orig;
+- (UIImage *)contentsImage {
+  if(![Neon customIconExists:@"com.apple.mobiletimer"]) {
+    if([[prefs objectForKey:@"kMasksEnabled"] boolValue]) return [Neon customlyMaskedImageForImage:%orig];
+    return %orig;
+  }
   return [Neon iconImageForBundleID:@"com.apple.mobiletimer" masked:YES origImage:%orig];
 }
 
-- (id)_generateSquareContentsImage {
-  if(![Neon customIconExists:@"com.apple.mobiletimer"]) return %orig;
-  return [Neon iconImageForBundleID:@"com.apple.mobiletimer" masked:NO origImage:%orig];
+- (UIImage *)_generateSquareContentsImage {
+  if(![Neon customIconExists:@"com.apple.mobiletimer"]) {
+    if([[prefs objectForKey:@"kMasksEnabled"] boolValue]) return [Neon customlyMaskedImageForImage:%orig];
+    return %orig;
+  }
+  return [Neon iconImageForBundleID:@"com.apple.mobiletimer" masked:YES origImage:%orig];
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {
-  if(![[prefs valueForKey:@"Themes enabled"] boolValue]) return %orig;
   self = %orig;
   if(themes == nil) themes = [prefs objectForKey:@"selectedCells"];
   NSDictionary *files = @{
@@ -402,138 +278,231 @@ NSString *globalBundleID = nil;
 
 %end
 
-// Notifications
+// END THEMES GROUP
 
-/*%hook PLPlatterHeaderContentView
+%end
 
-- (void)setIcons:(NSArray *)icons {
-  UIResponder *responder = self;
-  NSString *bundleID = nil;
-  while ([responder isKindOfClass:[UIView class]]) responder = [responder nextResponder];
-  if([responder isKindOfClass:objc_getClass("NCNotificationViewController")]) {
-    NCNotificationViewController *vc = (NCNotificationViewController *)responder;
-    bundleID = [vc sectionID];
-  } else if([responder isKindOfClass:objc_getClass("WGWidgetListItemViewController")]) {
-    WGWidgetListItemViewController *vc = (WGWidgetListItemViewController *)responder;
-    bundleID = [[vc widgetHost] appBundleID];
-  } else {
-    %orig;
-    return;
-  }
-  UIImage *image = [UIImage imageWithContentsOfFile:[Neon filePathForBundleID:@"com.apple.Maps"]];
-  UIImage *owo = icons[0];
-  image = [Neon resizeImage:image toSize:owo.size.width];
-  if(bundleID.length != 0 && [Neon customIconExists:bundleID]) %orig(@[image]);
-  else %orig;
-  %orig;
-}
+// Notifications, disabled by default in settings cause it seems to drain battery
 
-%end*/
-
-// Notifications
+%group Notifications
 
 %hook NCNotificationRequestContentProvider
 
-NSCache *icons = nil;
-
 // iOS 12
 - (NSArray *)icons {
-  if(![Neon customIconExists:[self _appBundleIdentifer]]) return %orig;
-  UIImage *icon = [icons objectForKey:[self _appBundleIdentifer]];
-  if(icon) return @[icon];
-  return %orig;
+  if(![self _appBundleIdentifer] || ![Neon customIconExists:[self _appBundleIdentifer]]) return %orig;
+  UIImage *icon = [Neon iconImageForBundleID:[self _appBundleIdentifer] masked:YES origImage:%orig[0]];
+  return @[icon];
 }
 
 // iOS 10 - 11
-/*- (UIImage *)icon {
-  if(![Neon customIconExists:[self _appBundleIdentifer]]) return %orig;
-  UIImage *icon = [icons objectForKey:[self _appBundleIdentifer]];
-  if(icon) return icon;
-  return %orig;
-}*/
-
-- (instancetype)initWithNotificationRequest:(id)arg1 {
-  // TODO: THE ICONS ARRAY DOESN'T EXIST ON iOS 10 & 11 SO PLEASE FIND AN ALTERNATIVE
-  if(icons == nil) icons = [[NSCache alloc] init];
-  if(![%orig _appBundleIdentifer] || ![Neon customIconExists:[%orig _appBundleIdentifer]] || [icons objectForKey:[%orig _appBundleIdentifer]]) return %orig;
-  UIImage *icon = [Neon iconImageForBundleID:[%orig _appBundleIdentifer] masked:YES origImage:%orig.icons[0]];
-  [icons setObject:icon forKey:[%orig _appBundleIdentifer]];
-  return %orig;
+- (UIImage *)icon {
+  if(![self _appBundleIdentifer] || ![Neon customIconExists:[self _appBundleIdentifer]]) return %orig;
+  UIImage *icon = [Neon iconImageForBundleID:[self _appBundleIdentifer] masked:YES origImage:%orig];
+  return icon;
 }
 
 %end
 
-// Preferences
-// AETIKSUDFHBND:SKA"L
-// ALSKDJNKF
-// akisjhdfghfdjkis
-// sjdhfb
-//kajshdf
-//lckjvh/
-//s][dpflkjhdsl;NeonBoard_FRAMEWORKSsd;l
-//#ifndef f
-//#define f value
-//#endif]
-// LOOkAT ME F ON ME YEAH
-//ONLY MASK SHIT WITH BLANK ICON IF THERES NO MASKS ENABLED
-// ALSO HOOK BLANK ICON TO RETURN MASKED!!!!
-// YESSSSS PLZ
+%end
 
-%hook PSTableCell
+// Widget icons, also disabled by default because idk about its stability
 
-- (UIImage *)getLazyIcon {
-  if(![Neon customIconExists:[self getLazyIconID]]) return %orig;
-  UIImage *icon = [Neon resizeImage:[Neon iconImageForBundleID:[self getLazyIconID] masked:NO origImage:%orig] toSize:29];
-  return [Neon maskImage:icon withImage:[self blankIcon] size:29];
+%group Widgets
+
+%hook WGWidgetInfo
+
+- (UIImage *)_queue_iconWithFormat:(int)format forWidgetWithIdentifier:(NSString *)widgetIdentifier extension:(NSExtension *)extension {
+  NSString *bundleIdentifier = [widgetIdentifier substringToIndex:[widgetIdentifier rangeOfString:@"." options:NSBackwardsSearch].location];
+  if(![Neon customIconExists:bundleIdentifier]) {
+    if([[prefs objectForKey:@"kMasksEnabled"] boolValue]) return [%orig _applicationIconImageForFormat:format precomposed:NO scale:[UIScreen mainScreen].scale];
+    return %orig;
+  }
+  return [Neon iconImageForBundleID:bundleIdentifier masked:YES format:format];
 }
+
+- (UIImage *)_iconWithFormat:(int)format {
+  NSString *bundleIdentifier = [[self widgetIdentifier] substringToIndex:[[self widgetIdentifier] rangeOfString:@"." options:NSBackwardsSearch].location];
+  if(![Neon customIconExists:bundleIdentifier]) {
+    if([[prefs objectForKey:@"kMasksEnabled"] boolValue]) return [Neon customlyMaskedImageForImage:%orig];
+    else return %orig;
+  }
+  return [Neon iconImageForBundleID:bundleIdentifier masked:YES format:format];
+}
+
+%end
+
+%end
+
+// Icon masks
+
+@interface SBIconImageCrossfadeView : UIView
+@end
+
+CFURLRef CFBundleCopyResourceURL(CFBundleRef bundle, CFStringRef resourceName, CFStringRef resourceType, CFStringRef subDirName);
+
+%group IconMasks
+
+%hookf(CFURLRef, CFBundleCopyResourceURL, CFBundleRef bundle, CFStringRef resourceName, CFStringRef resourceType, CFStringRef subDirName) {
+  NSString *id = (__bridge NSString *)CFBundleGetIdentifier(bundle);
+  if([id isEqualToString:@"com.apple.mobileicons.framework"]) {
+    NSString *resourceNameString = (__bridge NSString *)resourceName;
+    NSString *resourceTypeString = (__bridge NSString *)resourceType;
+    NSString *fullFilename = [NSString stringWithFormat:@"%@.%@",resourceNameString,resourceTypeString];
+    NSString *fullPath = [NSString stringWithFormat:@"/Library/Themes/%@/Bundles/com.apple.mobileicons.framework/%@",[prefs objectForKey:@"kMask"],fullFilename];
+    if(![[NSFileManager defaultManager] fileExistsAtPath:fullPath isDirectory:nil]) fullPath = [NSString stringWithFormat:@"/Library/Themes/%@.theme/Bundles/com.apple.mobileicons.framework/%@",[prefs objectForKey:@"kMask"],fullFilename];
+    NSString *weirdPath = [NSString stringWithFormat:@"file://%@",fullPath];
+    if([[NSFileManager defaultManager] fileExistsAtPath:fullPath isDirectory:nil]) {
+      CFURLRef customURL = CFURLCreateWithString(NULL, (__bridge CFStringRef)weirdPath, NULL);
+      return customURL;
+    }
+  }
+  return %orig;
+}
+
+%hook SBIconImageCrossfadeView
+
+- (void)setMasksCorners:(BOOL)masksCorners {
+  %orig(NO);
+}
+
+%end
+
+// Turns out we don't need this one here anymore(?)
+
+/*%hook SBIcon
+
++ (UIImage *)pooledIconImageForMappedIconImage:(UIImage *)mappedIconImage {
+  NSString *device = [Neon device];
+  NSString *scale = [Neon screenScale];
+  NSString *maskPath = [NSString stringWithFormat:@"/Library/Themes/%@.theme/Bundles/com.apple.mobileicons.framework/AppIconMask%@%@.png",[prefs objectForKey:@"Masks.0"],device,scale];
+  return [Neon maskImage:%orig withImage:[UIImage imageWithContentsOfFile:maskPath] size:%orig.size.width];
+}
+
+%end*/
+
+%end
+
+// Temporary fix for the iOS 11+ animation bug with masks (creates another, smaller bug though)
+
+%group iOS11AndLaterMasksHotfix
+
+%hook SBIconImageCrossfadeView
+
+NSString *globalMaskPath = nil;
+
+- (instancetype)initWithFrame:(CGRect)frame {
+  if([globalMaskPath isEqualToString:@"NOMASK"]) return %orig;
+  self = %orig;
+  NSString *device = [Neon device];
+  NSString *scale = [Neon screenScale];
+  NSMutableArray *potentialFilenames = [[NSMutableArray alloc] init];
+  NSString *maskPath = nil;
+  NSString *themePath = [NSString stringWithFormat:@"/Library/Themes/%@.theme/Bundles/com.apple.mobileicons.framework/",[prefs objectForKey:@"kMask"]];
+  NSString *themeNoExtensionPath = [NSString stringWithFormat:@"/Library/Themes/%@/Bundles/com.apple.mobileicons.framework/",[prefs objectForKey:@"kMask"]];
+  // it's a mess, but i hope it works.
+  [potentialFilenames addObject:@"AppIconMask.png"];
+  [potentialFilenames addObject:[NSString stringWithFormat:@"AppIconMask%@%@.png",device,scale]];
+  [potentialFilenames addObject:[NSString stringWithFormat:@"AppIconMask%@%@.png",scale,device]];
+  [potentialFilenames addObject:[NSString stringWithFormat:@"AppIconMask~iphone%@.png",scale]];
+  [potentialFilenames addObject:[NSString stringWithFormat:@"AppIconMask%@~iphone.png",scale]];
+  for (NSString *filename in potentialFilenames) {
+    NSString *fullPath = [themePath stringByAppendingString:filename];
+    NSString *fullNoExtensionPath = [themeNoExtensionPath stringByAppendingString:filename];
+    if([[NSFileManager defaultManager] fileExistsAtPath:fullPath isDirectory:nil]) {
+      maskPath = fullPath;
+      break;
+    } else if([[NSFileManager defaultManager] fileExistsAtPath:fullNoExtensionPath isDirectory:nil]) {
+      maskPath = fullNoExtensionPath;
+      break;
+    } else continue;
+  }
+  if(maskPath.length != 0) globalMaskPath = maskPath;
+  else {
+    globalMaskPath = @"NOMASK";
+    return self;
+  }
+  CALayer *mask = [CALayer layer];
+  UIImage *customMaskImage = [UIImage imageWithContentsOfFile:maskPath];
+  mask.contents = (id)[customMaskImage CGImage];
+  mask.frame = CGRectMake(0,0,60,60);
+  self.layer.masksToBounds = YES;
+  self.layer.mask = mask;
+  return self;
+}
+
+%end
 
 %end
 
 // Random options
 
-%hook SBIconImageView
+// Disable dark overlay
 
-- (void)layoutSubviews {
-  %orig;
-  if([[prefs valueForKey:@"Masks enabled"] boolValue] && ![[prefs valueForKey:@"Disable dark overlay"] boolValue]) {
-    NSString *device = [Neon device];
-    NSString *scale = [Neon screenScale];
-    CALayer *mask = [CALayer layer];
-    NSString *maskPath = [NSString stringWithFormat:@"/Library/Themes/%@.theme/Bundles/com.apple.mobileicons.framework/AppIconMask%@%@.png",[prefs objectForKey:@"Masks"],device,scale];
-    UIImage *customMaskImage = [UIImage imageWithContentsOfFile:maskPath];
-    mask.contents = (id)[customMaskImage CGImage];
-    mask.frame = CGRectMake(0,0,62,62);
-    MSHookIvar<UIImageView *>(self, "_overlayView").layer.mask = mask;
-    MSHookIvar<UIImageView *>(self, "_overlayView").layer.masksToBounds = YES;
-  }
-}
-
-- (id)initWithFrame:(CGRect)arg1 {
-  if([[prefs valueForKey:@"Disable dark overlay"] boolValue]) {
-    SBIconImageView *imAThief = %orig;
-    MSHookIvar<double>(imAThief,"_overlayAlpha") = 0;
-    return imAThief;
-  }
-  return %orig;
-}
-
+%group NoOverlay
+%hook SBIconView
+- (void)setHighlighted:(BOOL)isHighlighted { %orig(NO); }
 %end
-
-%hook SBIconBadgeView
-
-- (void)setAccessoryBrightness:(double)arg1 {
-  if(![[prefs valueForKey:@"Disable dark overlay"] boolValue]) %orig;
-}
-
 %end
 
 // Hide icon labels
 
+%group HideLabels
 %hook SBIconView
-
 - (CGRect)_frameForLabel {
-  if([[prefs objectForKey:@"Hide labels"] boolValue]) return CGRectNull;
-  return %orig;
+  return CGRectNull;
 }
-
 %end
+%end
+
+// Hide dock background
+
+%group NoDockBg
+%hook SBDockView
+- (void)setBackgroundAlpha:(double)setBackgroundAlpha { %orig(0); }
+%end
+%end
+
+// Hide page dots
+
+%group NoPageDots
+%hook SBIconListPageControl
+- (void)setHidden:(BOOL)isHidden { %orig(YES); }
+%end
+%end
+
+// Hide folder icon background
+
+@interface SBFolderIconBackgroundView : UIView
+@end
+
+%group NoFolderIconBg
+%hook SBFolderIconBackgroundView
+- (instancetype)initWithDefaultSize {
+  self = %orig;
+  self.hidden = YES;
+  return self;
+}
+%end
+%end
+
+%ctor {
+  prefs = [[NSDictionary alloc] initWithContentsOfFile:@"/var/mobile/Library/Preferences/com.artikus.neonboardprefs.plist"];
+  if([[prefs valueForKey:@"kThemesEnabled"] boolValue]) {
+    themes = [prefs objectForKey:@"selectedCells"];
+    pathCache = [[NSCache alloc] init];
+    unmaskedIconCache = [[NSCache alloc] init];
+    %init(Themes);
+    if([[prefs valueForKey:@"kNotifsEnabled"] boolValue]) %init(Notifications);
+    if([[prefs valueForKey:@"kWidgetsEnabled"] boolValue]) %init(Widgets);
+  }
+  if([[prefs valueForKey:@"kMasksEnabled"] boolValue]) {
+    %init(IconMasks);
+    if(kCFCoreFoundationVersionNumber >= 1443.00) %init(iOS11AndLaterMasksHotfix);
+  }
+  if([[prefs valueForKey:@"kNoOverlay"] boolValue]) %init(NoOverlay);
+  if([[prefs valueForKey:@"kHideLabels"] boolValue]) %init(HideLabels);
+  if([[prefs valueForKey:@"kNoDockBg"] boolValue]) %init(NoDockBg);
+  if([[prefs valueForKey:@"kNoPageDots"] boolValue]) %init(NoPageDots);
+  if([[prefs valueForKey:@"kNoFolderIconBg"] boolValue]) %init(NoFolderIconBg);
+}

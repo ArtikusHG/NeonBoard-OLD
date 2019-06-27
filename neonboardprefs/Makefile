@@ -1,7 +1,6 @@
-ARCHS = armv7 armv7s arm64
+ARCHS = arm64
 include $(THEOS)/makefiles/common.mk
 TARGET := iphone:clang:8.1
-
 
 BUNDLE_NAME = neonboardprefs
 neonboardprefs_FILES = NBPRootListController.m ThemeListViewController.m ThemeSortViewController.m
