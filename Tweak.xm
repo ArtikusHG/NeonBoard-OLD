@@ -112,11 +112,26 @@ NSCache *unmaskedIconCache = nil;
     if([bundleID isEqualToString:@"clock"]) {
       NSString *themePath = [@"/Library/Themes/" stringByAppendingString:theme];
       if(![[NSFileManager defaultManager] fileExistsAtPath:themePath isDirectory:nil]) themePath = [themePath stringByAppendingString:@".theme"];
-      path = [themePath stringByAppendingString:@"/Bundles/com.apple.springboard/ClockIconBackgroundSquare~iphone.png"];
-      if(![[NSFileManager defaultManager] fileExistsAtPath:path isDirectory:nil] && [UIScreen mainScreen].scale == 2.0) {
-        path = [themePath stringByAppendingString:@"/Bundles/com.apple.springboard/ClockIconBackgroundSquare@2x.png"];
-        if([[NSFileManager defaultManager] fileExistsAtPath:path isDirectory:nil]) return path;
-      } else return path;
+      path = [themePath stringByAppendingString:@"/Bundles/com.apple.springboard/"];
+      NSMutableArray *potentialClockFilenames = [[NSMutableArray alloc] init];
+      [potentialClockFilenames addObject:@"ClockIconBackgroundSquare.png"];
+      [potentialClockFilenames addObject:@"ClockIconBackgroundSquare@2x.png"];
+      [potentialClockFilenames addObject:@"ClockIconBackgroundSquare~iphone.png"];
+      [potentialClockFilenames addObject:@"ClockIconBackgroundSquare@2x~iphone.png"];
+      [potentialClockFilenames addObject:@"ClockIconBackgroundSquare~iphone@2x.png"];
+      [potentialClockFilenames addObject:@"ClockIconBackgroundSquare@3x~iphone.png"];
+      [potentialClockFilenames addObject:@"ClockIconBackgroundSquare~iphone@3x.png"];
+      if(UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
+        [potentialClockFilenames addObject:@"ClockIconBackgroundSquare~ipad.png"];
+        [potentialClockFilenames addObject:@"ClockIconBackgroundSquare@2x~ipad.png"];
+        [potentialClockFilenames addObject:@"ClockIconBackgroundSquare~ipad@2x.png"];
+        [potentialClockFilenames addObject:@"ClockIconBackgroundSquare@3x~ipad.png"];
+        [potentialClockFilenames addObject:@"ClockIconBackgroundSquare~ipad@3x.png"];
+      }
+      for (NSString *filename in potentialClockFilenames) {
+        NSString *fullPath = [path stringByAppendingString:filename];
+        if([[NSFileManager defaultManager] fileExistsAtPath:fullPath isDirectory:nil]) return fullPath;
+      }
     }
   }
   return @"";
@@ -132,15 +147,14 @@ NSCache *unmaskedIconCache = nil;
   if(finalImage) return finalImage;
   NSString *path = [self filePathForBundleID:bundleID];
   if([[NSFileManager defaultManager] fileExistsAtPath:path isDirectory:nil]) finalImage = [UIImage imageWithContentsOfFile:path];
-  [unmaskedIconCache setObject:finalImage forKey:bundleID];
+  if(finalImage) [unmaskedIconCache setObject:finalImage forKey:bundleID];
   return finalImage;
 }
 
 + (UIImage *)iconImageForBundleID:(NSString *)bundleID masked:(BOOL)masked format:(int)format {
   UIImage *finalImage = [self unmaskedIconImageForBundleID:bundleID];
   if(!masked) return finalImage;
-  // TODO: check without the "scale" argument on iOS 7 & 12 because IDK if that can cause problems; it works on iOS 10 though.
-  finalImage = [finalImage _applicationIconImageForFormat:format precomposed:YES];
+  finalImage = [finalImage _applicationIconImageForFormat:format precomposed:YES scale:[UIScreen mainScreen].scale];
   return finalImage;
 }
 
@@ -206,7 +220,7 @@ NSCache *unmaskedIconCache = nil;
 
 + (UIImage *)_applicationIconImageForBundleIdentifier:(NSString *)bundleIdentifier format:(int)format scale:(double)scale {
   if(![Neon customIconExists:bundleIdentifier]) {
-    if([[prefs objectForKey:@"kMasksEnabled"] boolValue] && /* temporary fix because that causes issues on 7 - 10 */ kCFCoreFoundationVersionNumber >= 1443.00) return [%orig _applicationIconImageForFormat:format precomposed:YES];
+    if([[prefs objectForKey:@"kMasksEnabled"] boolValue] && /* temporary fix because that causes issues on 7 - 10 */ kCFCoreFoundationVersionNumber >= 1443.00) return [%orig _applicationIconImageForFormat:format precomposed:YES scale:scale];
     return %orig;
   }
   return [Neon iconImageForBundleID:bundleIdentifier masked:YES format:format];
@@ -315,7 +329,7 @@ NSCache *unmaskedIconCache = nil;
 - (UIImage *)_queue_iconWithFormat:(int)format forWidgetWithIdentifier:(NSString *)widgetIdentifier extension:(NSExtension *)extension {
   NSString *bundleIdentifier = [widgetIdentifier substringToIndex:[widgetIdentifier rangeOfString:@"." options:NSBackwardsSearch].location];
   if(![Neon customIconExists:bundleIdentifier]) {
-    if([[prefs objectForKey:@"kMasksEnabled"] boolValue]) return [%orig _applicationIconImageForFormat:format precomposed:NO scale:[UIScreen mainScreen].scale];
+    //if([[prefs objectForKey:@"kMasksEnabled"] boolValue]) return [%orig _applicationIconImageForFormat:format precomposed:NO scale:[UIScreen mainScreen].scale];
     return %orig;
   }
   return [Neon iconImageForBundleID:bundleIdentifier masked:YES format:format];
