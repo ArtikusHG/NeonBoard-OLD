@@ -37,15 +37,15 @@ NSString *device;
 }
 
 - (void)twitter {
-	[[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://twitter.com/ArtikusHG"]];
+    [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://twitter.com/ArtikusHG"] options:@{} completionHandler:nil];
 }
 
 - (void)github {
-	[[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://github.com/ArtikusHG"]];
+	[[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://github.com/ArtikusHG"] options:@{} completionHandler:nil];
 }
 
 - (void)soundcloud {
-	[[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://soundcloud.com/ArtikusHG"]];
+	[[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://soundcloud.com/ArtikusHG"] options:@{} completionHandler:nil];
 }
 
 // thanks Julioverne for opensourcing his tweaks :p
