@@ -1,7 +1,9 @@
+#DEBUG=0
+#FINALPACKAGE=1
 THEOS_DEVICE_IP = 192.168.0.87
-ARCHS = arm64
-TARGET := iphone:clang:8.1
-include /Users/artikus/theos/makefiles/common.mk
+ARCHS = arm64 arm64e armv7
+TARGET := iphone:clang:12.0:7.0
+include /Users/tanayfindley/theos/makefiles/common.mk
 
 TWEAK_NAME = NeonBoard
 NeonBoard_FILES = Tweak.xm Calendar.xm UIColor+HTMLColors.mm
