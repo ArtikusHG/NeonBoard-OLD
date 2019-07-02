@@ -48,6 +48,8 @@ NSDictionary *prefs;
 + (UIImage *)customlyMaskedImageForImage:(UIImage *)image;
 @end
 
+BOOL masksIcons = nil;
+
 @implementation Neon
 
 NSArray *themes = nil;
@@ -220,19 +222,21 @@ NSCache *unmaskedIconCache = nil;
 
 + (UIImage *)_applicationIconImageForBundleIdentifier:(NSString *)bundleIdentifier format:(int)format scale:(double)scale {
   if(![Neon customIconExists:bundleIdentifier]) {
-    if([[prefs objectForKey:@"kMasksEnabled"] boolValue] && /* temporary fix because that causes issues on 7 - 10 */ kCFCoreFoundationVersionNumber >= 1443.00) return [%orig _applicationIconImageForFormat:format precomposed:YES scale:scale];
+    if([[prefs objectForKey:@"kMasksEnabled"] boolValue] && /* temporary fix because that causes issues on iOS 7 - 10 */ kCFCoreFoundationVersionNumber >= 1443.00) return [%orig _applicationIconImageForFormat:format precomposed:YES scale:scale];
     return %orig;
   }
-  return [Neon iconImageForBundleID:bundleIdentifier masked:YES format:format];
+  if(masksIcons) return [Neon iconImageForBundleID:bundleIdentifier masked:YES format:format];
+  else return [Neon iconImageForBundleID:bundleIdentifier masked:NO origImage:%orig];
 }
 
-+ (UIImage *)_applicationIconImageForBundleIdentifier:(NSString *)bundleIdentifier format:(int)format {
+// Seems to be useless
+/*+ (UIImage *)_applicationIconImageForBundleIdentifier:(NSString *)bundleIdentifier format:(int)format {
   if(![Neon customIconExists:bundleIdentifier]) {
-    if([[prefs objectForKey:@"kMasksEnabled"] boolValue] && /* temporary fix because that causes issues on 7 - 10 */ kCFCoreFoundationVersionNumber >= 1443.00) return [%orig _applicationIconImageForFormat:format precomposed:YES];
+    if([[prefs objectForKey:@"kMasksEnabled"] boolValue] && kCFCoreFoundationVersionNumber >= 1443.00) return [%orig _applicationIconImageForFormat:format precomposed:YES];
     return %orig;
   }
-  return [Neon iconImageForBundleID:bundleIdentifier masked:YES format:format];
-}
+  return [Neon iconImageForBundleID:bundleIdentifier masked:masksIcons format:format];
+}*/
 
 %end
 
@@ -329,7 +333,7 @@ NSCache *unmaskedIconCache = nil;
 - (UIImage *)_queue_iconWithFormat:(int)format forWidgetWithIdentifier:(NSString *)widgetIdentifier extension:(NSExtension *)extension {
   NSString *bundleIdentifier = [widgetIdentifier substringToIndex:[widgetIdentifier rangeOfString:@"." options:NSBackwardsSearch].location];
   if(![Neon customIconExists:bundleIdentifier]) {
-    //if([[prefs objectForKey:@"kMasksEnabled"] boolValue]) return [%orig _applicationIconImageForFormat:format precomposed:NO scale:[UIScreen mainScreen].scale];
+    //if([[prefs objectForKey:@"kMasksEnabled"] boolValue]) return [%orig _applicationIconImageForFormat:format precomposed:YES scale:[UIScreen mainScreen].scale];
     return %orig;
   }
   return [Neon iconImageForBundleID:bundleIdentifier masked:YES format:format];
@@ -509,6 +513,14 @@ NSString *globalMaskPath = nil;
     %init(Themes);
     if([[prefs valueForKey:@"kNotifsEnabled"] boolValue]) %init(Notifications);
     if([[prefs valueForKey:@"kWidgetsEnabled"] boolValue]) %init(Widgets);
+    NSString *infoPath = [@"/Library/Themes/" stringByAppendingString:[themes objectAtIndex:0]];
+    if(![[NSFileManager defaultManager] fileExistsAtPath:infoPath isDirectory:nil]) infoPath = [infoPath stringByAppendingString:@".theme"];
+    infoPath = [infoPath stringByAppendingString:@"/Info.plist"];
+    if([[NSFileManager defaultManager] fileExistsAtPath:infoPath isDirectory:nil]) {
+      NSDictionary *info = [[NSDictionary alloc] initWithContentsOfFile:infoPath];
+      if([info valueForKey:@"IB-MaskIcons"]) masksIcons = [[info valueForKey:@"IB-MaskIcons"] boolValue];
+      else masksIcons = NO;
+    } else masksIcons = NO;
   }
   if([[prefs valueForKey:@"kMasksEnabled"] boolValue]) {
     %init(IconMasks);
