@@ -63,9 +63,8 @@ NSCache *unmaskedIconCache = nil;
 
 + (NSString *)screenScale {
   if([UIScreen mainScreen].scale == 1.0f) return @"";
-  if([UIScreen mainScreen].scale == 2.0f) return @"@2x";
-  if([UIScreen mainScreen].scale == 3.0f) return @"@3x";
-  return @"@2x";
+  else if([UIScreen mainScreen].scale == 2.0f) return @"@2x";
+  else return @"@3x";
 }
 
 + (NSString *)filePathForBundleID:(NSString *)bundleID {
